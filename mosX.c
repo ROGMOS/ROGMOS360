@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <ncurses.h>
 #include <string.h>
-#include "gamepad.h"
+#include "gamepad.h"	//gamepad libary from elanthis/gamepad
 
 
 //defines for global Booleans
@@ -15,13 +15,14 @@
 #define BUTTON_BACK_define_mos 7
 #define BUTTON_RIGHT_STICK_define_mos 8
 #define BUTTON_LEFT_STICK_define_mos 9
-// #define NUMBER_GAMEPAD_BUT 10 //old solution for for-loop
-enum gamepad_all_items {BUT_X, BUT_Y, BUT_A, BUT_B, BUT_RB, BUT_LB, BUT_START, BUT_BACK, BUT_RIGHT_STICK, BUT_LEFT_STICK, UNKNOWN };
 
-//global booleans
+
+enum gamepad_all_items {BUT_X, BUT_Y, BUT_A, BUT_B, BUT_RB, BUT_LB, BUT_START, BUT_BACK, BUT_RIGHT_STICK, BUT_LEFT_STICK, UNKNOWN };	//all implemented one click items
+
+//global booleans in these the buttons are saved from the functions
 bool g_mos[10];
 
-struct gamepad_items
+struct gamepad_items	//object used to find the chosen item, for case with string
 {
 	char *name;
 	enum gamepad_all_items id;
@@ -39,51 +40,46 @@ struct gamepad_items
 };
 
 
-void get_button_mos(GAMEPAD_DEVICE dev,char const button_wanted[11]); //longest button name is left_stick
-void update_all_but(GAMEPAD_DEVICE dev);
-void test_all_but_mos(GAMEPAD_DEVICE GAMEPAD_0);
-void g_mos_reset();
-void init_gamepad_rogmos();
+void get_button_mos(GAMEPAD_DEVICE dev,char const button_wanted[11]); //get a single button upgraded, wont trigger multiple times
+void update_all_but(GAMEPAD_DEVICE dev);	// get all buttons upgraded, wont trigger multiple times
+// if both functions are used events can trigger 2 times cause they dont share the boolean memory
+void test_all_but_mos(GAMEPAD_DEVICE GAMEPAD_0);	//function to test if all buttions are right
+void g_mos_reset();	//resets all buttons to FALSE
+void init_gamepad_rogmos(); //initialisation of the gamepad
 
 
 void get_button_mos(GAMEPAD_DEVICE dev,char const button_wanted[6])
 {
-	static bool new_bool,old_bool[10],first_run=TRUE;
-	//static char old_button[6];
-	int chosen_but;
-	unsigned long int i;
+	static bool new_bool,old_bool[10],first_run=TRUE;	//new bool is a temp var, old bool saves the state of the last new bool to deny multiple events
+	int chosen_but;	//saves the chosen button number
+	unsigned long int i;	//used for a loop
 
-	GamepadUpdate();
-	if(first_run==TRUE)
+	enum gamepad_all_items my_gamepad_items;	//var to detect which item was hit
+	struct gamepad_items *choice = NULL;
+
+	GamepadUpdate();	//updates the var of the gamepad but not the var in the program
+	move(dev, 0);
+	if(first_run==TRUE)	// detects first run and sets all global booleans to false
 	{
-		//strcpy(old_button, button_wanted);
 		first_run=FALSE;
 		for(i=0;i<10;i++)
 		{
 			old_bool[i]=FALSE;
 		}
 	}
-	move(dev, 0);
-	//need to save ult button so new and old bool function can work
-
-
-	enum gamepad_all_items my_gamepad_items;
-	struct gamepad_items *choice = NULL;
-	//puts("hallo");
-	//for(i=0, choice=NULL;i<NUMBER_GAMEPAD_BUT;i++) // alte Define-Lösung
-	for(i=0, choice=NULL;i< sizeof gamepad_but_list/sizeof (struct gamepad_items);i++)
+	
+	for(i=0, choice=NULL;i< sizeof gamepad_but_list/sizeof (struct gamepad_items);i++) //runs max to the amount of items in the list
 	{
-		//puts("hallo");
-		if (strcmp(button_wanted, gamepad_but_list[i].name) == 0)
-		{
+		if (strcmp(button_wanted, gamepad_but_list[i].name) == 0)//checks if hit was archieved -> wanted button is existing
+		{	//hit
 			choice = gamepad_but_list + i;
 			break;
 		}
 	}
 
-	my_gamepad_items = choice ? choice ->id : UNKNOWN;
+	my_gamepad_items = choice ? choice ->id : UNKNOWN;	//saves the item in my_gamepad_itesm, if hit then for example the code for X-Button is saved
 
-	switch(my_gamepad_items)	//da muasd nu alles ausfüllen
+	switch(my_gamepad_items)	//Runs the case for the the gamepad item -> saves Button Number and reads Button state
 	{
 		case BUT_RB:
 			new_bool=GamepadButtonDown(dev, BUTTON_RIGHT_SHOULDER);
@@ -125,32 +121,30 @@ void get_button_mos(GAMEPAD_DEVICE dev,char const button_wanted[6])
 			new_bool=GamepadButtonDown(dev, BUTTON_RIGHT_THUMB);
 			chosen_but=BUTTON_RIGHT_STICK_define_mos;
 			break;
-		default:
+		default:	//ERROR Button wasnt found
 			puts("Die Russen kommen");
 			break;
 	}
 
 
-//	printf("\nold:%d\nnew%d\n",old_bool,new_bool);
-	if(old_bool[chosen_but]==TRUE&&new_bool==TRUE)
+	if(old_bool[chosen_but]==TRUE&&new_bool==TRUE)//to deny multiple events
 	{
 		g_mos[chosen_but]=FALSE;		
 	}
-	else if(old_bool[chosen_but]==FALSE&&new_bool==TRUE)
+	else if(old_bool[chosen_but]==FALSE&&new_bool==TRUE)//new event found
 	{
 		g_mos[chosen_but]=TRUE;
 	}
-	else
+	else//button still 0 or not pressed
 	{
 		g_mos[chosen_but]=FALSE;
 	}
 
-
-	old_bool[chosen_but]=new_bool;
+	old_bool[chosen_but]=new_bool; // saves new_bool for multiple event detection
 }
 
 void update_all_but(GAMEPAD_DEVICE dev)
-{
+{	//similar to get_button_mos only without chosing one button and updating all buttons
 	static bool new_bool,old_bool[10],first_run=TRUE;
 	//static char old_button[6];
 	int chosen_but,i;
@@ -232,7 +226,7 @@ void update_all_but(GAMEPAD_DEVICE dev)
 
 }
 
-void test_all_but_mos(GAMEPAD_DEVICE GAMEPAD_0)
+void test_all_but_mos(GAMEPAD_DEVICE GAMEPAD_0)// little test programm
 {
 	char ch;
 	ch='0';
@@ -303,13 +297,13 @@ void test_all_but_mos(GAMEPAD_DEVICE GAMEPAD_0)
 
 }
 
-void g_mos_reset(){
+void g_mos_reset(){	//resets all global Booleans
 	int i;
 	for(i=0;i<sizeof gamepad_but_list/sizeof (struct gamepad_items);i++)
 		g_mos[i]=FALSE;
 }
 
-void init_gamepad_rogmos()
+void init_gamepad_rogmos()	//configures the gamepad
 {
 	cbreak();
     timeout(1);
@@ -318,11 +312,9 @@ void init_gamepad_rogmos()
 }
 
 int main(){
-	char ch;
 
-	init_gamepad_rogmos();
-
-	test_all_but_mos(GAMEPAD_0);
+	init_gamepad_rogmos();	//init Gamepad
+	test_all_but_mos(GAMEPAD_0);	//run test
 /*
 	while((ch==getch())!='q'){
 		get_button_mos(GAMEPAD_0,"left_stick");
